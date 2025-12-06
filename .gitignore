@@ -1,0 +1,94 @@
+# Fichiers compilés Java
+*.class
+bin/
+target/
+
+# Fichiers Eclipse
+.classpath
+.project
+.settings/
+
+# Fichiers de build
+*.jar
+*.war
+*.ear
+
+# Logs
+*.log
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Fichiers temporaires
+*.tmp
+*.bak
+```
+
+### **Étape C : Sauvegarder**
+
+- Appuyer sur **`Ctrl + S`** (Windows/Linux)
+- Ou **`Cmd + S`** (Mac)
+
+---
+
+## **Faire le premier commit**
+
+### **Option 1 : Via Git Staging (Recommandée)**
+
+1. **Menu** `Window` → `Show View` → `Other...`
+2. `Git` → `Git Staging`
+3. Cliquer **Open**
+
+**Dans la vue Git Staging :**
+
+4. **Section "Unstaged Changes"** : Vous voyez tous vos fichiers
+```
+   📄 .gitignore
+   📄 .classpath
+   📄 .project
+   📁 src/...
+   📁 lib/...
+   etc.
+```
+
+5. Cliquer sur le bouton **➕➕** (Add all files to the index)
+   - Ou faire un glisser-déposer vers "Staged Changes"
+
+6. Dans **Commit Message** (en bas de la vue), écrire :
+```
+   Initial commit - Structure du projet
+   
+   - Création des packages (modele, dao, enumeration, vue, test)
+   - Ajout du driver PostgreSQL
+   - Configuration .gitignore
+```
+
+7. Cliquer sur le bouton **Commit** (ne pas cliquer sur "Commit and Push" pour l'instant)
+
+**✅ Premier commit effectué !**
+
+### **Option 2 : Via le menu Team**
+
+1. **Clic droit** sur le projet
+2. `Team` → `Commit...`
+3. Sélectionner tous les fichiers
+4. Cliquer **➕** (Add to Index) pour les mettre dans "Staged Changes"
+5. Écrire le message de commit
+6. Cliquer **Commit**
+
+---
+
+## **Vérifier que le commit a fonctionné**
+
+### **Méthode 1 : Via l'historique Git**
+
+1. **Clic droit** sur le projet
+2. `Team` → `Show in History`
+3. Vous devriez voir votre commit :
+```
+   📝 Initial commit - Structure du projet
+   👤 Votre Nom
+   📅 [Date et heure]
