@@ -3,6 +3,8 @@ package com.compagnieaerienne.modele;
 import java.sql.*;
 import java.time.LocalDate;
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 import com.compagnieaerienne.dao.ConnexionBD;
 import com.compagnieaerienne.enumeration.*;
 
@@ -171,9 +173,9 @@ public class Billet {
      * @param idPassager L'ID du passager
      * @return Liste de billets (peut être vide)
      */
-    public static java.util.List<Billet> chercherParPassager(int idPassager) {
+    public static List<Billet> chercherParPassager(int idPassager) {
         String sql = "SELECT * FROM Billet WHERE id_passager = ?";
-        java.util.List<Billet> billets = new java.util.ArrayList<>();
+        List<Billet> billets = new ArrayList<>();
         PreparedStatement pstmt = null;
         ResultSet rs = null;
         
@@ -209,9 +211,9 @@ public class Billet {
      * @param numVol Le numéro du vol
      * @return Liste de billets (peut être vide)
      */
-    public static java.util.List<Billet> chercherParVol(String numVol) {
+    public static List<Billet> chercherParVol(String numVol) {
         String sql = "SELECT * FROM Billet WHERE num_vol = ?";
-        java.util.List<Billet> billets = new java.util.ArrayList<>();
+        List<Billet> billets = new ArrayList<>();
         PreparedStatement pstmt = null;
         ResultSet rs = null;
         
@@ -242,6 +244,44 @@ public class Billet {
         return billets;
     }
     
+    // ========== MÉTHODE LISTER TOUS ==========
+    
+    /**
+     * Récupérer tous les billets de la base
+     * @return Liste de tous les billets
+     */
+    public static List<Billet> listerTous() {
+        List<Billet> billets = new ArrayList<>();
+        String sql = "SELECT * FROM Billet ORDER BY date_emission DESC, num_billet";
+        PreparedStatement pstmt = null;
+        ResultSet rs = null;
+        
+        try {
+            Connection conn = ConnexionBD.getConnection();
+            pstmt = conn.prepareStatement(sql);
+            rs = pstmt.executeQuery();
+            
+            while (rs.next()) {
+                billets.add(extraireBillet(rs));
+            }
+            
+            System.out.println("✓ " + billets.size() + " billet(s) récupéré(s)");
+            return billets;
+            
+        } catch (SQLException e) {
+            System.err.println("✗ Erreur lors du listing des billets");
+            e.printStackTrace();
+            return billets; // Retourne une liste vide en cas d'erreur
+        } finally {
+            try {
+                if (rs != null) rs.close();
+                if (pstmt != null) pstmt.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+    
     // ========== MÉTHODE AJOUTER ==========
     
     /**
@@ -249,6 +289,11 @@ public class Billet {
      * @return true si succès, false sinon
      */
     public boolean ajouter() {
+        // Si numBillet n'est pas défini, générer un numéro
+        if (this.numBillet == null || this.numBillet.trim().isEmpty()) {
+            this.numBillet = genererNumeroBillet();
+        }
+        
         String sql = "INSERT INTO Billet (num_billet, id_passager, classe, tarif, " +
                     "statut, date_emission, num_vol, num_siege) " +
                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
@@ -287,6 +332,8 @@ public class Billet {
                 System.err.println("  Ce numéro de billet existe déjà !");
             } else if (e.getMessage().contains("id_passager")) {
                 System.err.println("  Le passager n'existe pas !");
+            } else if (e.getMessage().contains("foreign key")) {
+                System.err.println("  Le passager n'existe pas ou contrainte de clé étrangère violée !");
             } else {
                 e.printStackTrace();
             }
@@ -422,6 +469,117 @@ public class Billet {
             System.out.println("✓ Billet remboursé : " + this.numBillet);
         }
         return resultat;
+    }
+    
+    /**
+     * Vérifier si un numéro de billet existe déjà
+     * @param numBillet Le numéro à vérifier
+     * @return true si le numéro existe déjà
+     */
+    public static boolean numeroExiste(String numBillet) {
+        String sql = "SELECT COUNT(*) FROM Billet WHERE num_billet = ?";
+        PreparedStatement pstmt = null;
+        ResultSet rs = null;
+        
+        try {
+            Connection conn = ConnexionBD.getConnection();
+            pstmt = conn.prepareStatement(sql);
+            pstmt.setString(1, numBillet);
+            
+            rs = pstmt.executeQuery();
+            
+            if (rs.next()) {
+                return rs.getInt(1) > 0;
+            }
+            
+            return false;
+            
+        } catch (SQLException e) {
+            System.err.println("✗ Erreur lors de la vérification du numéro de billet");
+            return false;
+        } finally {
+            try {
+                if (rs != null) rs.close();
+                if (pstmt != null) pstmt.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+    
+    /**
+     * Vérifier si un passager existe
+     * @param idPassager L'ID du passager à vérifier
+     * @return true si le passager existe
+     */
+    public static boolean passagerExiste(int idPassager) {
+        String sql = "SELECT COUNT(*) FROM Passager WHERE id_passager = ?";
+        PreparedStatement pstmt = null;
+        ResultSet rs = null;
+        
+        try {
+            Connection conn = ConnexionBD.getConnection();
+            pstmt = conn.prepareStatement(sql);
+            pstmt.setInt(1, idPassager);
+            
+            rs = pstmt.executeQuery();
+            
+            if (rs.next()) {
+                return rs.getInt(1) > 0;
+            }
+            
+            return false;
+            
+        } catch (SQLException e) {
+            System.err.println("✗ Erreur lors de la vérification du passager");
+            return false;
+        } finally {
+            try {
+                if (rs != null) rs.close();
+                if (pstmt != null) pstmt.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+    
+    /**
+     * Générer un numéro de billet unique
+     * @return Numéro de billet généré
+     */
+    private String genererNumeroBillet() {
+        // Format : BIL-YYYYMMDD-XXXX
+        String prefix = "BIL-" + LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd")) + "-";
+        String sql = "SELECT COUNT(*) FROM Billet WHERE num_billet LIKE ?";
+        PreparedStatement pstmt = null;
+        ResultSet rs = null;
+        
+        try {
+            Connection conn = ConnexionBD.getConnection();
+            pstmt = conn.prepareStatement(sql);
+            pstmt.setString(1, prefix + "%");
+            
+            rs = pstmt.executeQuery();
+            
+            if (rs.next()) {
+                int count = rs.getInt(1) + 1;
+                return prefix + String.format("%04d", count);
+            }
+            
+            return prefix + "0001";
+            
+        } catch (SQLException e) {
+            System.err.println("✗ Erreur lors de la génération du numéro de billet");
+            // Fallback : timestamp
+            return "BIL-" + System.currentTimeMillis();
+        } finally {
+            try {
+                if (rs != null) rs.close();
+                if (pstmt != null) pstmt.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
     }
     
     /**

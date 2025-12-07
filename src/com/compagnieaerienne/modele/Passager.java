@@ -2,6 +2,8 @@ package com.compagnieaerienne.modele;
 
 import java.sql.*;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import com.compagnieaerienne.dao.ConnexionBD;
 import com.compagnieaerienne.enumeration.*;
 
@@ -226,6 +228,45 @@ public class Passager {
         }
     }
     
+    // ========== MÉTHODE LISTER TOUS ==========
+    
+    /**
+     * Récupérer tous les passagers de la base
+     * @return Liste de tous les passagers
+     */
+    public static List<Passager> listerTous() {
+        List<Passager> passagers = new ArrayList<>();
+        String sql = "SELECT * FROM Passager ORDER BY nom, prenom";
+        PreparedStatement pstmt = null;
+        ResultSet rs = null;
+        
+        try {
+            Connection conn = ConnexionBD.getConnection();
+            pstmt = conn.prepareStatement(sql);
+            rs = pstmt.executeQuery();
+            
+            while (rs.next()) {
+                Passager p = extrairePassager(rs);
+                passagers.add(p);
+            }
+            
+            System.out.println("✓ " + passagers.size() + " passagers récupérés");
+            return passagers;
+            
+        } catch (SQLException e) {
+            System.err.println("✗ Erreur lors du listing des passagers");
+            e.printStackTrace();
+            return passagers; // Retourne une liste vide en cas d'erreur
+        } finally {
+            try {
+                if (rs != null) rs.close();
+                if (pstmt != null) pstmt.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+    
     // ========== MÉTHODE AJOUTER ==========
     
     /**
@@ -235,14 +276,27 @@ public class Passager {
     public boolean ajouter() {
         String sql = "INSERT INTO Passager (nom, prenom, date_naissance, num_passeport, " +
                     "nationalite, type_passager, genre, email, telephone) " +
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_passager";
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        
+        // Pour PostgreSQL avec RETURNING
+        String sqlPostgres = sql + " RETURNING id_passager";
+        String sqlMySQL = sql; // Pour MySQL
         
         PreparedStatement pstmt = null;
         ResultSet rs = null;
         
         try {
             Connection conn = ConnexionBD.getConnection();
-            pstmt = conn.prepareStatement(sql);
+            
+            // Utiliser la bonne requête selon le type de base
+            String databaseProductName = conn.getMetaData().getDatabaseProductName();
+            boolean isPostgreSQL = databaseProductName.toLowerCase().contains("postgresql");
+            
+            if (isPostgreSQL) {
+                pstmt = conn.prepareStatement(sqlPostgres);
+            } else {
+                pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+            }
             
             // Paramètres
             pstmt.setString(1, this.nom);
@@ -256,10 +310,22 @@ public class Passager {
             pstmt.setString(9, this.telephone);
             
             // Exécution
-            rs = pstmt.executeQuery();
+            int rowsAffected = pstmt.executeUpdate();
             
-            if (rs.next()) {
-                this.idPassager = rs.getInt("id_passager");
+            if (rowsAffected > 0) {
+                // Récupérer l'ID généré
+                if (isPostgreSQL) {
+                    rs = pstmt.getResultSet();
+                    if (rs.next()) {
+                        this.idPassager = rs.getInt("id_passager");
+                    }
+                } else {
+                    rs = pstmt.getGeneratedKeys();
+                    if (rs.next()) {
+                        this.idPassager = rs.getInt(1);
+                    }
+                }
+                
                 System.out.println("✓ Passager ajouté avec succès ! ID : " + this.idPassager);
                 return true;
             }
@@ -414,6 +480,84 @@ public class Passager {
             rs.getString("email"),
             rs.getString("telephone")
         );
+    }
+    
+    // ========== MÉTHODES VALIDATION ==========
+    
+    /**
+     * Vérifier si un numéro de passeport existe déjà
+     * @param numPasseport Le numéro à vérifier
+     * @param idExclu ID à exclure (pour la modification)
+     * @return true si le passeport existe déjà
+     */
+    public static boolean passeportExiste(String numPasseport, Integer idExclu) {
+        String sql = "SELECT COUNT(*) FROM Passager WHERE num_passeport = ? AND id_passager != ?";
+        PreparedStatement pstmt = null;
+        ResultSet rs = null;
+        
+        try {
+            Connection conn = ConnexionBD.getConnection();
+            pstmt = conn.prepareStatement(sql);
+            pstmt.setString(1, numPasseport);
+            pstmt.setObject(2, idExclu);
+            
+            rs = pstmt.executeQuery();
+            
+            if (rs.next()) {
+                return rs.getInt(1) > 0;
+            }
+            
+            return false;
+            
+        } catch (SQLException e) {
+            System.err.println("✗ Erreur lors de la vérification du passeport");
+            return false;
+        } finally {
+            try {
+                if (rs != null) rs.close();
+                if (pstmt != null) pstmt.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+    
+    /**
+     * Vérifier si un email existe déjà
+     * @param email L'email à vérifier
+     * @param idExclu ID à exclure (pour la modification)
+     * @return true si l'email existe déjà
+     */
+    public static boolean emailExiste(String email, Integer idExclu) {
+        String sql = "SELECT COUNT(*) FROM Passager WHERE email = ? AND id_passager != ?";
+        PreparedStatement pstmt = null;
+        ResultSet rs = null;
+        
+        try {
+            Connection conn = ConnexionBD.getConnection();
+            pstmt = conn.prepareStatement(sql);
+            pstmt.setString(1, email);
+            pstmt.setObject(2, idExclu);
+            
+            rs = pstmt.executeQuery();
+            
+            if (rs.next()) {
+                return rs.getInt(1) > 0;
+            }
+            
+            return false;
+            
+        } catch (SQLException e) {
+            System.err.println("✗ Erreur lors de la vérification de l'email");
+            return false;
+        } finally {
+            try {
+                if (rs != null) rs.close();
+                if (pstmt != null) pstmt.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
     }
     
     // ========== TOSTRING ==========
